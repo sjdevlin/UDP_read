@@ -52,8 +52,8 @@ int main() {
         exit(EXIT_FAILURE); 
     } 
 
-    memset(target_addr, 0, sizeof(target_addr)); 
-    memset(&categoru_addr, 0, sizeof(category_addr)); 
+    memset(&target_addr, 0, sizeof(target_addr)); 
+    memset(&category_addr, 0, sizeof(category_addr)); 
       
     // Filling target information 
     target_addr.sin_family    = AF_INET; // IPv4 
@@ -83,7 +83,8 @@ int main() {
     } 
 
 
-    int len, bytes_returned; 
+    socklen_t len;
+    int bytes_returned; 
     int timestamp_last_target = 0;
     int timestamp_last_category = 0;
 
@@ -127,7 +128,7 @@ int main() {
 
     for (int i = 0; i<4; i++ ) {
 
-        print ("X: %3.2f, Y: %3.2f, E: %3.2f, f: %3.2f", targetX[i], targetY[i], energy[i], frequency[i])
+        printf ("X: %3.2f, Y: %3.2f, E: %3.2f, f: %3.2f", targetX[i], targetY[i], energy[i], frequency[i]);
 
     }
 
@@ -141,17 +142,17 @@ int main() {
 
 // main JSON parser
 
-unigned int json_parse(json_object *jobj) {
+unsigned int json_parse(json_object *jobj) {
   enum json_type type;
   unsigned int count = 0;
-  unsigned int timestamp = 0;
+  unsigned int timeStamp = 0;
 
   json_object_object_foreach(jobj, key, val) {
 
     type = json_object_get_type(val);
     switch (type) {
       case json_type_int:
-        if (!strcmp (key,"timeStamp")) timestamp = json_object_get_int(val)
+        if (!strcmp (key,"timeStamp")) timeStamp = json_object_get_int(val);
         if (!strcmp(key, "id"))  count = json_object_get_int(val);
         break;
       case json_type_double:
