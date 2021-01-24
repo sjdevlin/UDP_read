@@ -16,21 +16,25 @@
 #define MAXLINE 512
 #define MAXPART 7
 #define MAXSILENCE 90
+#define NUM_CHANNELS 2
+#define MINTURNSILENCE 20
 
 // function protos
 unsigned int json_parse(json_object *, const int);
 void json_parse_array(json_object *, char *);
 void process_sound_data(const int);
 
-double targetX[4];
-double targetY[4];
-double energy[4];
-double frequency[4];
+double targetX[NUM_CHANNELS];
+double targetY[NUM_CHANNELS];
+double energy[NUM_CHANNELS];
+double frequency[NUM_CHANNELS];
+
 int angle_array[360];
 int participant_angle[MAXPART];
 int participant_is_talking[MAXPART];
 int participant_silent_time[MAXPART];
 int participant_total_talk_time[MAXPART];
+int participant_num_turns[MAXPART];
 float participant_frequency[MAXPART];
 
 int num_participants = 0;
@@ -125,7 +129,6 @@ int main()
 
   int target_socket = 9001;
   int category_socket = 9000;
-
   int target_sockfd, category_sockfd;
   char target_buffer[MAXLINE];
   char category_buffer[MAXLINE];
@@ -148,13 +151,16 @@ int main()
     perror("category socket creation failed");
     exit(EXIT_FAILURE);
   }
+    
+    // set all stuff to 0
+    memset(&target_addr, 0, sizeof(target_addr));
+    memset(&category_addr, 0, sizeof(category_addr));
+    memset(&angle_array, 0, sizeof(angle_array));
+    memset(&participant_angle, 0, sizeof(participant_angle));
+    memset(&participant_is_talking, 0, sizeof(participant_is_talking));
+    memset(&participant_total_talk_time, 0, sizeof(participant_total_talk_time));
+    memset(&participant_num_turns, 0, sizeof(participant_num_turns));
 
-  memset(&target_addr, 0, sizeof(target_addr));
-  memset(&category_addr, 0, sizeof(category_addr));
-  memset(&angle_array, 0, sizeof(angle_array));
-  memset(&participant_angle, 0, sizeof(participant_angle));
-  memset(&participant_is_talking, 0, sizeof(participant_is_talking));
-  memset(&participant_total_talk_time, 0, sizeof(participant_total_talk_time));
 
   // Filling target information
   target_addr.sin_family = AF_INET; // IPv4
@@ -251,14 +257,13 @@ void process_sound_data(const int timeStamp)
 
   total_meeting_time++;
 
-  for (iChannel = 0; iChannel < 4; iChannel++)
+  for (iChannel = 0; iChannel < NUM_CHANNELS; iChannel++)
   {
 
     // check if energy at the channel is above threshold and if it has been identifies as speech
 
     if (energy[iChannel] > 0.3)
     {
-
       total_silence = 0;
 
       target_angle = 180 - (atan2(targetX[iChannel], targetY[iChannel]) * 57.3);
@@ -319,6 +324,7 @@ void process_sound_data(const int timeStamp)
         //
         participant_is_talking[angle_array[target_angle]] = 1;
         participant_total_talk_time[angle_array[target_angle]]++;
+          if ((frequency[iChannel] < participant_frequency[angle_array[target_angle]]) participant_frequency[angle_array[target_angle]] = frequency[iChannel];
       }
     }
     else
@@ -335,7 +341,8 @@ void process_sound_data(const int timeStamp)
   int i, bufferSize;
 
   sprintf(buffer, "%s{\n", buffer);
-  sprintf(buffer, "%s    \"timeStamp\": %d,\n", buffer, total_meeting_time);
+  sprintf(buffer, "%s    \"timeStamp\": %d,\n", buffer, timeStamp);
+  sprintf(buffer, "%s    \"totalMeetingTime\": %d,\n", buffer, total_meeting_time);
   sprintf(buffer, "%s    \"message\": [\n", buffer);
 
   for (i = 1; i < (num_participants + 1); i++)
@@ -343,9 +350,18 @@ void process_sound_data(const int timeStamp)
     sprintf(buffer, "%s { \"memNum\": %d,", buffer, i);
     sprintf(buffer, "%s \"angle\": %d,", buffer, participant_angle[i]);
     sprintf(buffer, "%s \"talking\": %d,", buffer, participant_is_talking[i]);
+    sprintf(buffer, "%s \"numTurns\": %d,", buffer, participant_num_turns[i]);
+    sprintf(buffer, "%s \"freg\": %3.0f,", buffer, participant_frequency[i]);
     sprintf(buffer, "%s \"totalTalk\": %d}", buffer, participant_total_talk_time[i]);
 
-    participant_is_talking[i] = 0x00;
+      if (participant_is_talking[i]) {
+            participant_is_talking[i] = 0x00
+          if (participant_silent_time > MINTURNSILENCE) {
+              participant_num_turns[i]++;
+              participant_silent_time[i]=0;
+      } else
+          participant_silent_time[i]++
+      };
 
     if (i != (num_participants))
     {
@@ -374,7 +390,11 @@ void process_sound_data(const int timeStamp)
       memset(&participant_angle, 0, sizeof(participant_angle));
       memset(&participant_is_talking, 0, sizeof(participant_is_talking));
       memset(&participant_total_talk_time, 0, sizeof(participant_total_talk_time));
+      memset(&participant_num_turns, 0, sizeof(participant_num_turns));
+
       num_participants = 0;
+      total_silence = 0;
+      total_meeting_time = 0;
 
       struct tm *timenow;
       char filename[62];
