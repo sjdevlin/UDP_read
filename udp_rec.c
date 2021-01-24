@@ -15,9 +15,10 @@
 #define CATEGORYPORT 9000
 #define MAXLINE 512
 #define MAXPART 7
-#define MAXSILENCE 90
+#define MAXSILENCE 500
 #define NUM_CHANNELS 2
 #define MINTURNSILENCE 20
+#define MINENERGY 0.8
 
 // function protos
 unsigned int json_parse(json_object *, const int);
@@ -160,6 +161,7 @@ int main()
     memset(&participant_is_talking, 0, sizeof(participant_is_talking));
     memset(&participant_total_talk_time, 0, sizeof(participant_total_talk_time));
     memset(&participant_num_turns, 0, sizeof(participant_num_turns));
+    memset(&participant_frequency, 500.0, sizeof(participant_frequency));
 
 
   // Filling target information
@@ -262,7 +264,7 @@ void process_sound_data(const int timeStamp)
 
     // check if energy at the channel is above threshold and if it has been identifies as speech
 
-    if (energy[iChannel] > 0.3)
+    if (energy[iChannel] > MINENERGY)
     {
       total_silence = 0;
 
@@ -282,6 +284,9 @@ void process_sound_data(const int timeStamp)
         angle_array[target_angle] = num_participants;
 
         participant_angle[num_participants] = target_angle;
+
+        // set intial frequency high
+        participant_frequency[num_participants] = 500.0;
         // write a buffer around them
 
         for (iAngle = 1; iAngle < angle_spread; iAngle++)
@@ -324,7 +329,7 @@ void process_sound_data(const int timeStamp)
         //
         participant_is_talking[angle_array[target_angle]] = 1;
         participant_total_talk_time[angle_array[target_angle]]++;
-          if ((frequency[iChannel] < participant_frequency[angle_array[target_angle]]) participant_frequency[angle_array[target_angle]] = frequency[iChannel];
+          if (frequency[iChannel] < participant_frequency[angle_array[target_angle]]) participant_frequency[angle_array[target_angle]] = frequency[iChannel];
       }
     }
     else
@@ -355,12 +360,13 @@ void process_sound_data(const int timeStamp)
     sprintf(buffer, "%s \"totalTalk\": %d}", buffer, participant_total_talk_time[i]);
 
       if (participant_is_talking[i]) {
-            participant_is_talking[i] = 0x00
-          if (participant_silent_time > MINTURNSILENCE) {
+            participant_is_talking[i] = 0x00;
+          if (participant_silent_time[i] > MINTURNSILENCE) {
               participant_num_turns[i]++;
-              participant_silent_time[i]=0;
-      } else
-          participant_silent_time[i]++
+              participant_silent_time[i]=0;}
+      } else 
+      {
+          participant_silent_time[i]++;
       };
 
     if (i != (num_participants))
@@ -391,7 +397,7 @@ void process_sound_data(const int timeStamp)
       memset(&participant_is_talking, 0, sizeof(participant_is_talking));
       memset(&participant_total_talk_time, 0, sizeof(participant_total_talk_time));
       memset(&participant_num_turns, 0, sizeof(participant_num_turns));
-
+  
       num_participants = 0;
       total_silence = 0;
       total_meeting_time = 0;
