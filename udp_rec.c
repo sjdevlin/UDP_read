@@ -13,6 +13,7 @@
 
 #define TARGETPORT 9001
 #define CATEGORYPORT 9000
+#define APPPORT 9072
 #define MAXLINE 512
 #define MAXPART 7
 #define MAXSILENCE 500
@@ -128,9 +129,7 @@ void json_parse_array(json_object *jobj, char *key)
 int main()
 {
 
-  int target_socket = 9001;
-  int category_socket = 9000;
-  int target_sockfd, category_sockfd;
+  int target_sockfd, category_sockfd, app_sockfd;
   char target_buffer[MAXLINE];
   char category_buffer[MAXLINE];
 
@@ -138,6 +137,14 @@ int main()
 
   struct sockaddr_in target_addr;
   struct sockaddr_in category_addr;
+  struct sockaddr_in app_addr;
+
+  // Create socket file descriptor for app
+  if ((app_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+  {
+    perror("target app creation failed");
+    exit(EXIT_FAILURE);
+  }
 
   // Create socket file descriptor for target
   if ((target_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -154,6 +161,7 @@ int main()
   }
     
     // set all stuff to 0
+    memset(&app_addr, 0, sizeof(app_addr));
     memset(&target_addr, 0, sizeof(target_addr));
     memset(&category_addr, 0, sizeof(category_addr));
     memset(&angle_array, 0, sizeof(angle_array));
@@ -164,15 +172,20 @@ int main()
     memset(&participant_frequency, 500.0, sizeof(participant_frequency));
 
 
+  // Filling app information
+  app_addr.sin_family = AF_INET; // IPv4
+  app_addr.sin_addr.s_addr = INADDR_BROADCAST;
+  app_addr.sin_port = htons(APPPORT);
+
   // Filling target information
   target_addr.sin_family = AF_INET; // IPv4
   target_addr.sin_addr.s_addr = INADDR_ANY;
-  target_addr.sin_port = htons(target_socket);
+  target_addr.sin_port = htons(TARGETPORT);
 
   // Filling catgeory information
   category_addr.sin_family = AF_INET; // IPv4
   category_addr.sin_addr.s_addr = INADDR_ANY;
-  category_addr.sin_port = htons(category_socket);
+  category_addr.sin_port = htons(CATEGORYPORT);
 
   // Bind the socket with the server address
   if (bind(target_sockfd, (const struct sockaddr *)&target_addr,
@@ -356,7 +369,7 @@ void process_sound_data(const int timeStamp)
     sprintf(buffer, "%s \"angle\": %d,", buffer, participant_angle[i]);
     sprintf(buffer, "%s \"talking\": %d,", buffer, participant_is_talking[i]);
     sprintf(buffer, "%s \"numTurns\": %d,", buffer, participant_num_turns[i]);
-    sprintf(buffer, "%s \"freg\": %3.0f,", buffer, participant_frequency[i]);
+    sprintf(buffer, "%s \"freq\": %3.0f,", buffer, participant_frequency[i]);
     sprintf(buffer, "%s \"totalTalk\": %d}", buffer, participant_total_talk_time[i]);
 
       if (participant_is_talking[i]) {
@@ -383,6 +396,10 @@ void process_sound_data(const int timeStamp)
   printf("%s", buffer);
 
   bufferSize = strlen(buffer);
+
+  sendto(app_sockfd, buffer, buffersize, 0, (struct sockaddr *) &app_addr, sizeof(struct sockaddr_in));
+
+
 
   if (total_silence > MAXSILENCE)
   {
