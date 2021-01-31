@@ -14,11 +14,11 @@
 #define TARGETPORT 9001
 #define CATEGORYPORT 9000
 #define APPPORT 9072
-#define MAXLINE 512
+#define MAXLINE 1024
 #define MAXPART 7
 #define MAXSILENCE 500
 #define NUM_CHANNELS 2
-#define MINTURNSILENCE 20
+#define MINTURNSILENCE 30
 #define MINENERGY 0.5
 
 // function protos
@@ -299,7 +299,7 @@ void process_sound_data(const int timeStamp)
         num_participants++;
 
         angle_array[target_angle] = num_participants;
-
+	printf ("new person %d\n", num_participants);
         participant_angle[num_participants] = target_angle;
 
         // set intial frequency high
@@ -344,12 +344,15 @@ void process_sound_data(const int timeStamp)
         //                    this is to start getting an average angle
         //                    participant[buffer[target_angle]].angle = .9 * new_sample + (.1) * ma_old;
         //
+// could put logic in here to count turns
+
         participant_is_talking[angle_array[target_angle]] = 10 * energy[iChannel];
         participant_total_talk_time[angle_array[target_angle]]++;
 
 	// update angle again to see how accurately it picks up each time
 	participant_angle[angle_array[target_angle]] = target_angle;
-    participant_frequency[angle_array[target_angle]] = (0.9 *  participant_frequency[angle_array[target_angle]]) + (0.1 * frequency[iChannel]);
+//    participant_frequency[angle_array[target_angle]] = (0.9 *  participant_frequency[angle_array[target_angle]]) + (0.1 * frequency[iChannel]);
+      participant_frequency[angle_array[target_angle]] = frequency[iChannel];
       }
     }
     else
@@ -370,7 +373,7 @@ void process_sound_data(const int timeStamp)
   sprintf(buffer, "%s    \"totalMeetingTime\": %d,\n", buffer, total_meeting_time);
   sprintf(buffer, "%s    \"message\": [\n", buffer);
 
-  for (i = 1; i < (num_participants + 1); i++)
+  for (i = 1; i <= num_participants ; i++)
   {
     sprintf(buffer, "%s { \"memNum\": %d,", buffer, i);
     sprintf(buffer, "%s \"angle\": %d,", buffer, participant_angle[i]);
@@ -379,8 +382,9 @@ void process_sound_data(const int timeStamp)
     sprintf(buffer, "%s \"freq\": %3.0f,", buffer, participant_frequency[i]);
     sprintf(buffer, "%s \"totalTalk\": %d}", buffer, participant_total_talk_time[i]);
 
-      if (participant_is_talking[i]) {
-            participant_is_talking[i] = 0x00;
+      if (participant_is_talking[i]>0) {
+ // not sure this logic is necessary - prob all targets go to zero before dropping out
+           participant_is_talking[i] = 0x00;
           if (participant_silent_time[i] > MINTURNSILENCE) {
               participant_num_turns[i]++;
               participant_silent_time[i]=0;}
