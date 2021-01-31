@@ -19,7 +19,7 @@
 #define MAXSILENCE 500
 #define NUM_CHANNELS 2
 #define MINTURNSILENCE 20
-#define MINENERGY 0.8
+#define MINENERGY 0.5
 
 // function protos
 unsigned int json_parse(json_object *, const int);
@@ -37,6 +37,10 @@ int participant_is_talking[MAXPART];
 int participant_silent_time[MAXPART];
 int participant_total_talk_time[MAXPART];
 int participant_num_turns[MAXPART];
+
+int app_sockfd;
+struct sockaddr_in app_addr;
+
 float participant_frequency[MAXPART];
 
 int num_participants = 0;
@@ -129,7 +133,7 @@ void json_parse_array(json_object *jobj, char *key)
 int main()
 {
 
-  int target_sockfd, category_sockfd, app_sockfd;
+  int target_sockfd, category_sockfd;
   char target_buffer[MAXLINE];
   char category_buffer[MAXLINE];
 
@@ -137,7 +141,7 @@ int main()
 
   struct sockaddr_in target_addr;
   struct sockaddr_in category_addr;
-  struct sockaddr_in app_addr;
+
 
   // Create socket file descriptor for app
   if ((app_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -174,17 +178,17 @@ int main()
 
   // Filling app information
   app_addr.sin_family = AF_INET; // IPv4
-  app_addr.sin_addr.s_addr = INADDR_BROADCAST;
+  app_addr.sin_addr.s_addr = inet_addr("192.168.178.47");
   app_addr.sin_port = htons(APPPORT);
 
   // Filling target information
   target_addr.sin_family = AF_INET; // IPv4
-  target_addr.sin_addr.s_addr = INADDR_ANY;
+  target_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
   target_addr.sin_port = htons(TARGETPORT);
 
   // Filling catgeory information
   category_addr.sin_family = AF_INET; // IPv4
-  category_addr.sin_addr.s_addr = INADDR_ANY;
+  category_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
   category_addr.sin_port = htons(CATEGORYPORT);
 
   // Bind the socket with the server address
@@ -329,8 +333,8 @@ void process_sound_data(const int timeStamp)
           }
         }
 
-        participant_is_talking[num_participants] = 0x01;
-        printf("\nnew entrant %d  Angle:%d\n", num_participants, target_angle);
+        participant_is_talking[num_participants] = 10 * energy[iChannel];
+  //      printf("\nnew entrant %d  Angle:%d\n", num_participants, target_angle);
       }
       else // its an existing talker we're hearing
 
@@ -340,9 +344,12 @@ void process_sound_data(const int timeStamp)
         //                    this is to start getting an average angle
         //                    participant[buffer[target_angle]].angle = .9 * new_sample + (.1) * ma_old;
         //
-        participant_is_talking[angle_array[target_angle]] = 1;
+        participant_is_talking[angle_array[target_angle]] = 10 * energy[iChannel];
         participant_total_talk_time[angle_array[target_angle]]++;
-          if (frequency[iChannel] < participant_frequency[angle_array[target_angle]]) participant_frequency[angle_array[target_angle]] = frequency[iChannel];
+
+	// update angle again to see how accurately it picks up each time
+	participant_angle[num_participants] = target_angle;
+          if (frequency[iChannel] < participant_frequency[angle_array[target_angle]]  && frequency[iChannel] > 60) participant_frequency[angle_array[target_angle]] = frequency[iChannel];
       }
     }
     else
@@ -393,11 +400,11 @@ void process_sound_data(const int timeStamp)
 
   sprintf(buffer, "%s    ]\n", buffer);
   sprintf(buffer, "%s}\n", buffer);
-  printf("%s", buffer);
+//  printf("%s", buffer);
 
   bufferSize = strlen(buffer);
 
-  sendto(app_sockfd, buffer, buffersize, 0, (struct sockaddr *) &app_addr, sizeof(struct sockaddr_in));
+  sendto(app_sockfd, buffer, bufferSize, 0, (struct sockaddr *) &app_addr, sizeof(struct sockaddr_in));
 
 
 
