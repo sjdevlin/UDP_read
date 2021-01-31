@@ -173,7 +173,7 @@ int main()
     memset(&participant_is_talking, 0, sizeof(participant_is_talking));
     memset(&participant_total_talk_time, 0, sizeof(participant_total_talk_time));
     memset(&participant_num_turns, 0, sizeof(participant_num_turns));
-    memset(&participant_frequency, 500.0, sizeof(participant_frequency));
+    memset(&participant_frequency, 200.0, sizeof(participant_frequency));
 
 
   // Filling app information
@@ -272,7 +272,7 @@ void process_sound_data(const int timeStamp)
 
   int target_angle;
   int iChannel, iAngle;
-  int angle_spread = 15;
+  int angle_spread = 10;
 
   total_meeting_time++;
 
@@ -287,13 +287,13 @@ void process_sound_data(const int timeStamp)
 
       target_angle = 180 - (atan2(targetX[iChannel], targetY[iChannel]) * 57.3);
 
-      // angle_array holds a booelan for every angle position.  Once an angle is set to true a person is registered there
+      // angle_array holds a int for every angle position.  Once an angle is set to true a person is registered there
       // so if tracked source is picked up we check to see if it is coming from a known participant
       // if it is not yet known then we also check that we havent reached max particpants before trying to add a new one
 
       //max_num_participants -1 so that we dont go out of bounds - means 0 is never used so will need to optimise
 
-      if (angle_array[target_angle] == 0x00 && num_participants < MAXPART - 1)
+      if (angle_array[target_angle] == 0x00 && num_participants < (MAXPART - 1))
       {
 
         num_participants++;
@@ -303,7 +303,7 @@ void process_sound_data(const int timeStamp)
         participant_angle[num_participants] = target_angle;
 
         // set intial frequency high
-        participant_frequency[num_participants] = 500.0;
+        participant_frequency[num_participants] = 200.0;
         // write a buffer around them
 
         for (iAngle = 1; iAngle < angle_spread; iAngle++)
@@ -348,8 +348,8 @@ void process_sound_data(const int timeStamp)
         participant_total_talk_time[angle_array[target_angle]]++;
 
 	// update angle again to see how accurately it picks up each time
-	participant_angle[num_participants] = target_angle;
-          if (frequency[iChannel] < participant_frequency[angle_array[target_angle]]  && frequency[iChannel] > 60) participant_frequency[angle_array[target_angle]] = frequency[iChannel];
+	participant_angle[angle_array[target_angle]] = target_angle;
+    participant_frequency[angle_array[target_angle]] = (0.9 *  participant_frequency[angle_array[target_angle]]) + (0.1 * frequency[iChannel]);
       }
     }
     else
