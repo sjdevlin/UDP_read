@@ -246,7 +246,7 @@ void process_sound_data(meeting *  meeting_data, participant_data * participant_
     }
     
     sprintf(buffer, "%s    ]\n", buffer);
-    sprintf(buffer, "%s}\0", buffer);
+    sprintf(buffer, "%s}\n", buffer);
 //    printf ("%s\n",buffer);    
 }
 
