@@ -19,9 +19,7 @@
 #include <math.h>
 #include <time.h>
 
-#define TARGETPORT 9001
-#define CATEGORYPORT 9000
-#define APPPORT 9072
+#define INPORT 9000
 #define MAXLINE 1024
 #define MAXPART 7
 #define MAXSILENCE 500

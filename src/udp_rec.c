@@ -6,72 +6,42 @@
 int main()
 {
 
-// UDP buffers
+// Interface buffers
+char input_buffer[MAXLINE];
 char output_buffer[MAXLINE];
-char target_buffer[MAXLINE];
-char category_buffer[MAXLINE];
 
 // UDP variables
-int app_sockfd,target_sockfd, category_sockfd;
+int in_sockfd;
 int bytes_returned, buffer_size;
-struct sockaddr_in app_addr, target_addr, category_addr;
+struct sockaddr_in in_addr;
 
-int timestamp_last_target, timestamp_last_category;
+int timestamp;
 
     // initialise UDP sockets input and output
 
     // Create socket file descriptor for app
-    if ((app_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    if ((in_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
         perror("output socket creation failed");
         exit(EXIT_FAILURE);
     }
-    // Create socket file descriptor for target
-    if ((target_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-        perror("target socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-    // Create socket file descriptor for category
-    if ((category_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-        perror("category socket creation failed");
-        exit(EXIT_FAILURE);
-    }
     
     // Filling app information
-    app_addr.sin_family = AF_INET; // IPv4
-    app_addr.sin_addr.s_addr = inet_addr("192.168.178.47");
-    app_addr.sin_port = htons(APPPORT);
+    in_addr.sin_family = AF_INET; // IPv4
+    in_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    in_addr.sin_port = htons(INPORT);
     
-    // Filling target information
-    target_addr.sin_family = AF_INET; // IPv4
-    target_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    target_addr.sin_port = htons(TARGETPORT);
-    
-    // Filling catgeory information
-    category_addr.sin_family = AF_INET; // IPv4
-    category_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    category_addr.sin_port = htons(CATEGORYPORT);
     
     // Bind the input socket for target with the server address
-    if (bind(target_sockfd, (const struct sockaddr *)&target_addr,
-             sizeof(target_addr)) < 0)
+    if (bind(in_sockfd, (const struct sockaddr *)&in_addr,
+             sizeof(in_addr)) < 0)
     {
         perror("target bind failed");
         exit(EXIT_FAILURE);
     }
-    
-    // Bind the input socket for category with the server address
-    if (bind(category_sockfd, (const struct sockaddr *)&category_addr,
-             sizeof(category_addr)) < 0)
-    {
-        perror("category bind failed");
-        exit(EXIT_FAILURE);
-    }
 
     socklen_t len;
-    len = sizeof(category_addr); //length data is neeeded for receive call
+    len = sizeof(in_addr); //length data is neeeded for receive call
 
     // initialise arrays for input and output data
 
@@ -83,41 +53,23 @@ int timestamp_last_target, timestamp_last_category;
 
   // need to change the "while" loop below to wait for GPIO socket
 
-    timestamp_last_target = 0;
-    timestamp_last_category = 0;
+    timestamp = 0;
 
   while (1)
   {
-
-    while (timestamp_last_target <= timestamp_last_category)
-    {
-      bytes_returned = recvfrom(target_sockfd, (char *)target_buffer, MAXLINE,
-                                MSG_WAITALL, (struct sockaddr *)&target_addr,
+      bytes_returned = recvfrom(in_sockfd, (char *)input_buffer, MAXLINE,
+                                MSG_WAITALL, (struct sockaddr *)&in_addr,
                                 &len);
-      target_buffer[bytes_returned] = 0x00; // sets end for json parser
+      input_buffer[bytes_returned] = 0x00; // sets end for json parser
       if (bytes_returned > 0)
       {
-        timestamp_last_target = json_parse(target_buffer, odas_data_array);
+        timestamp = json_parse(input_buffer, odas_data_array);
       }
-    }
-
-    while (timestamp_last_category < timestamp_last_target)
-    {
-      bytes_returned = recvfrom(category_sockfd, (char *)category_buffer, MAXLINE,
-                                MSG_WAITALL, (struct sockaddr *)&category_addr,
-                                &len);
-      category_buffer[bytes_returned] = 0x00; // sets end for json parser
-      if (bytes_returned > 0)
-      {
-        timestamp_last_category = json_parse(category_buffer, odas_data_array);
-      }
-    }
 
     process_sound_data(&meeting_data, participant_data_array, odas_data_array, output_buffer);
     buffer_size = strlen(output_buffer);
     // send out UDP message to app
 	printf ("%d  %s\n", buffer_size, output_buffer);
-    sendto(app_sockfd, output_buffer, buffer_size, 0, (struct sockaddr *) &app_addr, sizeof(struct sockaddr_in));
       
     if (meeting_data.total_silence > MAXSILENCE)
       {
